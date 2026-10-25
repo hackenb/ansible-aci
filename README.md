@@ -2,7 +2,7 @@
 
 This repository contains a lab-focused Ansible automation project for configuring a Cisco ACI fabric with a tenant-based application model and external connectivity objects. The playbooks use the Cisco ACI Ansible collection to manage APIC objects such as tenants, VRFs, bridge domains, filters, contracts, application profiles, endpoint groups, and L2Out/L3Out policies.
 
-Note: This repository is just an example how to use a couple of Ansible configurations tested on the Cisco Dcloud Demostration: Get Started with Cisco ACI 6.1. After starting the lab in Dcloud you have to install ansible in WSL first. This is NOT a fully developed Lab - I am working on it that the whole thing makes some sense. Regards h.
+Note: This repository is just an example how to use a couple of Ansible configurations tested on the Cisco Dcloud Demostration: Get Started with Cisco ACI 6.1. After starting the lab in Dcloud you have to initialize the fabric using NAC or UI and install ansible in WSL first. This is NOT a fully developed Lab - I am working on it that the whole thing makes some sense. Regards h.
 
 ## Overview
 
