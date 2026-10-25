@@ -1,0 +1,28 @@
+- name: Play delete Tenant
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Delete tenant
+      cisco.aci.aci_tenant:
+        hostname: "{{ apic_ip }}"
+        username: "{{ user }}"
+        password: "{{ passw }}"
+        validate_certs: false
+        use_ssl: true
+        tenant: hacki-tn-a
+        description: hacki tenant
+        state: absent
+
+    - name: Delete VMM domain
+      cisco.aci.aci_domain:
+        host: "{{ apic_ip }}"
+        username: "{{ user }}"
+        password: "{{ passw }}"
+        validate_certs: false
+        use_ssl: true
+        state: "absent"
+        domain: test-dvs
+        domain_type: vmm
+        vm_provider: vmware

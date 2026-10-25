@@ -1,0 +1,53 @@
+---
+application_profiles: 
+  - hacki-ap1
+
+epg_to_domain:
+  - ap: hacki-ap1
+    epg: "EPG-web"
+    domain: "test-dvs"
+    type: "vmm"
+    provider: vmware
+  - ap: hacki-ap1
+    epg: "EPG-back"
+    domain: "test-dvs"
+    type: "vmm"
+    provider: vmware
+  - ap: hacki-ap1
+    epg: "EPG-DB"
+    domain: "test-dvs"
+    type: "vmm"
+    provider: vmware
+
+endpoint_group: 
+  - ap: hacki-ap1
+    epg: "EPG-web"
+    bd: hacki-bd
+  - ap: hacki-ap1
+    epg: "EPG-back"
+    bd: hacki-bd2
+  - ap: hacki-ap1
+    epg: "EPG-DB"
+    bd: hacki-bd
+
+contracts_to_epg:
+  - ap: hacki-ap1
+    epg: "EPG-web"
+    contract: "web"
+    type: "provider"
+  - ap: hacki-ap1
+    epg: "EPG-web"
+    contract: "back"
+    type: "consumer"
+  - ap: hacki-ap1
+    epg: "EPG-back"
+    contract: "back"
+    type: "provider"
+  - ap: hacki-ap1
+    epg: "EPG-back"
+    contract: "db"
+    type: "consumer"
+  - ap: hacki-ap1
+    epg: "EPG-DB"
+    contract: "db"
+    type: "provider"

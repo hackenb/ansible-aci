@@ -1,0 +1,59 @@
+---
+filter:
+  - "web"
+  - "mgmt"
+  - "back"
+  - "db"
+
+filter_entries:
+  - filter: "web"
+    entry: "http"
+    port: 80
+  - filter: "web"
+    entry: "https"
+    port: 443
+  - filter: "mgmt"
+    entry: "ssh"
+    port: 22
+  - filter: "mgmt"
+    entry: "rdp"
+    port: 3389
+  - filter: "back"
+    entry: "back"
+    port: 5000
+  - filter: "db"
+    entry: "mysql"
+    port: 3306
+  - filter: "db"
+    entry: "postgres"
+    port: 5432
+
+contracts:
+  - "web"
+  - "back"
+  - "db"
+  - "mgmt"
+
+subjects:
+  - contract: "web"
+    subject: "http_s"
+  - contract: "mgmt"
+    subject: "ssh_rdp"
+  - contract: "back"
+    subject: "back"
+  - contract: "db"
+    subject: "db"
+
+subject_filter:
+  - contract: "web"
+    subject: "http_s"
+    filter: "web"
+  - contract: "mgmt"
+    subject: "ssh_rdp"
+    filter: "mgmt"
+  - contract: "back"
+    subject: "back"
+    filter: "back"
+  - contract: "db"
+    subject: "db"
+    filter: "db"

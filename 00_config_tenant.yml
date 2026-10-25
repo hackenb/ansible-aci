@@ -1,0 +1,181 @@
+---
+- name: Play All
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+    tenant_name: hacki-tn-a
+
+  tasks:
+    - name: Read application configuration File
+      ansible.builtin.include_vars:
+        file: conf_ap.yml
+        name: ap
+      tags:
+        - ap
+
+    - name: Read network configuration File
+      ansible.builtin.include_vars:
+        file: conf_net.yml
+        name: net
+      tags:
+        - net
+
+    - name: Read Contract configuration File
+      ansible.builtin.include_vars:
+        file: conf_contract.yml
+        name: contract
+      tags: contract
+
+    - name: Add a new VMM domain
+      cisco.aci.aci_domain:
+        <<: *allmods
+        domain: test-dvs
+        domain_type: vmm
+        vm_provider: vmware
+        state: "present"
+      tags: just_vmm_and_tenant
+
+    - name: CREATE ACI TENANT
+      cisco.aci.aci_tenant:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+      tags: just_vmm_and_tenant
+
+    - name: CREATE OR DELETE ACI TENANT VRF
+      cisco.aci.aci_vrf:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        vrf: "{{ item.vrf }}"
+        state: "{{ item.state }}"
+      loop: "{{ net.vrfs }}"
+      tags: net
+
+    - name: CREATE OR DELETE ACI TENANT BD
+      cisco.aci.aci_bd:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        bd: "{{ item.bd }}"
+        vrf: "{{ item.vrf }}"
+        arp_flooding: "{{ item.arp_flooding }}"
+        l2_unknown_unicast: "{{ item.l2_unknown_unicast }}"
+        l3_unknown_multicast: "{{ item.l3_unknown_multicast }}"
+        multi_dest: "{{ item.multi_dest }}"
+        enable_routing: "{{ item.enable_routing }}"
+        state: "{{ item.state }}"
+      loop: "{{ net.bds }}"
+      tags: net
+
+    - name: CREATE OR DELETE ACI TENANT BD SUBNET
+      cisco.aci.aci_bd_subnet:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        bd: "{{ item.bd }}"
+        gateway: "{{ item.gateway_ip }}"
+        mask: "{{ item.subnet_mask }}"
+        state: "{{ item.state }}"
+      loop: "{{ net.subnets }}"
+      tags: net
+
+    - name: Add a new filter to a tenant
+      cisco.aci.aci_filter:
+        <<: *allmods
+        filter: "{{ item }}"
+        description: "Created by Ansible"
+        tenant: "{{ tenant_name }}"
+      loop: "{{ contract.filter }}"
+      tags: contract
+
+    - name: ENSURE FILTERS HAVE TCP FILTER ENTRIES
+      cisco.aci.aci_filter_entry:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        filter: "{{ item.filter }}"
+        entry: "{{ item.entry }}"
+        ether_type: "ip"
+        ip_protocol: "tcp"
+        stateful: true
+        dst_port: "{{ item.port }}"
+      loop: "{{ contract.filter_entries }}"
+      tags: contract
+
+    - name: ENSURE TENANT CONTRACTS EXIST
+      cisco.aci.aci_contract:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        contract: "{{ item }}"
+        scope: "context"
+        description: "Contract Created Using Ansible"
+      loop: "{{ contract.contracts }}"
+      tags: contract
+
+    - name: ENSURE CONTRACTS HAVE CONTRACT SUBJECTS
+      cisco.aci.aci_contract_subject:
+        <<: *allmods
+        state: "present"
+        tenant: "{{ tenant_name }}"
+        contract: "{{ item.contract }}"
+        subject: "{{ item.subject }}"
+        reverse_filter: true
+      loop: "{{ contract.subjects }}"
+      tags: contract
+
+    - name: ENSURE CONTRACTS SUBJECTS ARE ASSOCIATED WITH FILTERS
+      cisco.aci.aci_contract_subject_to_filter:
+        <<: *allmods
+        state: "present"
+        tenant_name: "{{ tenant_name }}"
+        contract: "{{ item.contract }}"
+        subject: "{{ item.subject }}"
+        filter: "{{ item.filter }}"
+      loop: "{{ contract.subject_filter }}"
+      tags: contract
+
+    - name: CREATE ACI TENANT APP PROFILE
+      cisco.aci.aci_ap:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        ap: "{{ item }}"
+      loop: "{{ ap.application_profiles }}"
+      tags: ap
+
+    - name: CREATE APP PROFILE EPG
+      cisco.aci.aci_epg:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        epg: "{{ item.epg }}"
+        ap: "{{ item.ap }}"
+        bd: "{{ item.bd }}"
+      loop: "{{ ap.endpoint_group }}"
+      tags: ap
+
+    - name: Add domains to EPG
+      cisco.aci.aci_epg_to_domain:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        epg: "{{ item.epg }}"
+        ap: "{{ item.ap }}"
+        domain: "{{ item.domain }}"
+        domain_type: "{{ item.type }}"
+        vm_provider: "{{ item.provider }}"
+      loop: "{{ ap.epg_to_domain }}"
+      tags: ap
+
+    - name: Add contracts to EPG
+      cisco.aci.aci_epg_to_contract:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        epg: "{{ item.epg }}"
+        ap: "{{ item.ap }}"
+        contract: "{{ item.contract }}"
+        contract_type: "{{ item.type }}"
+      loop: "{{ ap.contracts_to_epg }}"
+      tags: ap

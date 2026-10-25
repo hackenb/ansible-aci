@@ -1,0 +1,39 @@
+---
+- name: Create hacki admin user on APIC
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+  tasks:
+    - name: Ensure local user hacki exists
+      cisco.aci.aci_aaa_user:
+        <<: *allmods
+        aaa_user: hacki
+        aaa_password: 'asdf66jkl$'
+        enabled: true
+        state: present
+      no_log: true
+
+    - name: Ensure user hacki is in security domain all
+      cisco.aci.aci_aaa_user_domain:
+        <<: *allmods
+        aaa_user: hacki
+        name: all
+        state: present
+
+    - name: Ensure user hacki has admin write role in security domain all
+      cisco.aci.aci_aaa_user_role:
+        <<: *allmods
+        aaa_user: hacki
+        domain_name: all
+        name: admin
+        privilege_type: write
+        state: present

@@ -1,0 +1,70 @@
+---
+- name: Configure explicit physical L2Out interface profile
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+    l2out_aep: L2Out
+    l2out_policy_group: L2Out-Physical-Access-PG
+    l2out_leaf_profile: L2Out-Leaf-201
+    l2out_interface_profile: L2Out-Leaf-201-Int
+    l2out_leaf: 201
+    l2out_port: 31
+
+  tasks:
+    - name: Create L2Out policy group with AEP attachment
+      cisco.aci.aci_interface_policy_leaf_policy_group:
+        <<: *allmods
+        policy_group: "{{ l2out_policy_group }}"
+        lag_type: leaf
+        aep: "{{ l2out_aep }}"
+        state: present
+
+    - name: Create L2Out leaf switch profile
+      cisco.aci.aci_switch_policy_leaf_profile:
+        <<: *allmods
+        leaf_profile: "{{ l2out_leaf_profile }}"
+        state: present
+
+    - name: Add leaf 201 selector to switch profile
+      cisco.aci.aci_switch_leaf_selector:
+        <<: *allmods
+        leaf_profile: "{{ l2out_leaf_profile }}"
+        leaf: "{{ l2out_leaf_profile }}-leaf-{{ l2out_leaf }}"
+        leaf_node_blk: "{{ l2out_leaf_profile }}-blk-{{ l2out_leaf }}"
+        from: "{{ l2out_leaf }}"
+        to: "{{ l2out_leaf }}"
+        policy_group: "{{ l2out_policy_group }}"
+        state: present
+
+    - name: Create L2Out leaf interface profile
+      cisco.aci.aci_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: "{{ l2out_interface_profile }}"
+        state: present
+
+    - name: Create port selector for physical interface 1/31
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: "{{ l2out_interface_profile }}"
+        access_port_selector: "{{ l2out_interface_profile }}-port-{{ l2out_port }}"
+        port_blk: "{{ l2out_interface_profile }}-blk-{{ l2out_port }}"
+        from_port: "{{ l2out_port }}"
+        to_port: "{{ l2out_port }}"
+        policy_group: "{{ l2out_policy_group }}"
+        state: present
+
+    - name: Associate leaf interface profile with switch profile
+      cisco.aci.aci_interface_selector_to_switch_policy_leaf_profile:
+        <<: *allmods
+        leaf_profile: "{{ l2out_leaf_profile }}"
+        interface_selector: "{{ l2out_interface_profile }}"
+        state: present

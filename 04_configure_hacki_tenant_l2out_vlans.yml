@@ -1,0 +1,80 @@
+---
+- name: Create L2Out objects for each VLAN in tenant hacki-tn-a
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+    tenant_name: hacki-tn-a
+    bridge_domain: hacki-bd
+    leaf_id: 201
+    pod_id: 1
+    port_id: "1/31"
+
+  tasks:
+    - name: Load VLAN list
+      ansible.builtin.include_vars:
+        file: vlans.yml
+        name: vlan_data
+
+    - name: Create L2Out per VLAN in tenant
+      cisco.aci.aci_l2out:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        bd: "{{ bridge_domain }}"
+        l2out: "L2Out-VLAN-{{ item.id }}"
+        domain: "L2Out-VLAN-{{ item.id }}"
+        vlan: "{{ item.id }}"
+        description: "L2Out for VLAN {{ item.id }}"
+        state: present
+      loop: "{{ vlan_data.vlans }}"
+
+    - name: Create L2Out node profile for each VLAN
+      cisco.aci.aci_l2out_logical_node_profile:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l2out: "L2Out-VLAN-{{ item.id }}"
+        node_profile: "L2Out-VLAN-{{ item.id }}-Node"
+        state: present
+      loop: "{{ vlan_data.vlans }}"
+
+    - name: Create L2Out logical interface profile for each VLAN
+      cisco.aci.aci_l2out_logical_interface_profile:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l2out: "L2Out-VLAN-{{ item.id }}"
+        node_profile: "L2Out-VLAN-{{ item.id }}-Node"
+        interface_profile: "L2Out-VLAN-{{ item.id }}-Int"
+        state: present
+      loop: "{{ vlan_data.vlans }}"
+
+    - name: Attach each L2Out to leaf 201 port 1/31
+      cisco.aci.aci_l2out_logical_interface_path:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l2out: "L2Out-VLAN-{{ item.id }}"
+        node_profile: "L2Out-VLAN-{{ item.id }}-Node"
+        interface_profile: "L2Out-VLAN-{{ item.id }}-Int"
+        interface_type: switch_port
+        interface: "{{ port_id }}"
+        pod_id: "{{ pod_id }}"
+        leaves: ["{{ leaf_id }}"]
+        state: present
+      loop: "{{ vlan_data.vlans }}"
+
+    - name: Create external EPG for each L2Out
+      cisco.aci.aci_l2out_extepg:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l2out: "L2Out-VLAN-{{ item.id }}"
+        extepg: "L2Out-ExtEpg-VLAN-{{ item.id }}"
+        description: "External EPG for VLAN {{ item.id }}"
+        state: present
+      loop: "{{ vlan_data.vlans }}"

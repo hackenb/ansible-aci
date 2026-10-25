@@ -1,0 +1,181 @@
+---
+- name: Configure VPC Policy Group
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+  tasks:
+    - name: Create Dynamic VLAN Pool
+      cisco.aci.aci_encap_pool:
+        <<: *allmods
+        pool: EXSi-VLANs
+        pool_type: vlan
+        pool_allocation_mode: dynamic
+        state: present
+
+    - name: Add VLANs 100-199 to Pool
+      cisco.aci.aci_encap_pool_range:
+        <<: *allmods
+        pool: EXSi-VLANs
+        pool_type: vlan
+        pool_allocation_mode: dynamic
+        range_name: vlan-100-199
+        range_start: 100
+        range_end: 199
+        allocation_mode: inherit
+        state: present
+
+    - name: Create Physical Domain
+      cisco.aci.aci_domain:
+        <<: *allmods
+        domain: ESXi-PHY
+        domain_type: phys
+        state: present
+
+    - name: Bind VLAN Pool to Physical Domain
+      cisco.aci.aci_domain_to_encap_pool:
+        <<: *allmods
+        domain: ESXi-PHY
+        domain_type: phys
+        pool: EXSi-VLANs
+        pool_type: vlan
+        pool_allocation_mode: dynamic
+        state: present
+
+    - name: Create AAEP
+      cisco.aci.aci_aep:
+        <<: *allmods
+        aep: ESXi-AAEP
+        state: present
+
+    - name: Bind Physical Domain to AAEP
+      cisco.aci.aci_aep_to_domain:
+        <<: *allmods
+        aep: ESXi-AAEP
+        domain: ESXi-PHY
+        domain_type: phys
+        state: present
+
+    - name: Create VPC Policy Group
+      cisco.aci.aci_interface_policy_leaf_policy_group:
+        <<: *allmods
+        policy_group: ESXi-hosts
+        lag_type: node
+        cdp_policy: cdp-enabled
+        lldp_policy: lldp-enabled
+        port_channel_policy: system-lacp-active
+        aep: ESXi-AAEP
+        state: present
+
+    - name: Create VPC Protection Group
+      cisco.aci.aci_switch_policy_vpc_protection_group:
+        <<: *allmods
+        protection_group: 201-202
+        protection_group_id: 1
+        switch_1_id: 201
+        switch_2_id: 202
+        state: present
+
+    - name: Create Leaf Interface Profile
+      cisco.aci.aci_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: leaf-201-202
+        state: present
+
+    - name: Create Leaf Switch Profile
+      cisco.aci.aci_switch_policy_leaf_profile:
+        <<: *allmods
+        leaf_profile: leaf-201-202
+        state: present
+
+    - name: Add Leaf Selector 201
+      cisco.aci.aci_switch_leaf_selector:
+        <<: *allmods
+        leaf_profile: leaf-201-202
+        leaf: leaf-201
+        leaf_node_blk: leaf-201
+        from: 201
+        to: 201
+        policy_group: ESXi-hosts
+        state: present
+
+    - name: Add Leaf Selector 202
+      cisco.aci.aci_switch_leaf_selector:
+        <<: *allmods
+        leaf_profile: leaf-201-202
+        leaf: leaf-202
+        leaf_node_blk: leaf-202
+        from: 202
+        to: 202
+        policy_group: ESXi-hosts
+        state: present
+
+    - name: Associate Interface Profile with Switch Profile
+      cisco.aci.aci_interface_selector_to_switch_policy_leaf_profile:
+        <<: *allmods
+        leaf_profile: leaf-201-202
+        interface_selector: leaf-201-202
+        state: present
+
+    - name: Create Port Selector for Interface 1/21
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: leaf-201-202
+        access_port_selector: int-1-21
+        port_blk: blk1
+        from_port: 21
+        to_port: 21
+        policy_group: ESXi-hosts
+        state: present
+
+    - name: Create Port Selector for Interface 1/22
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: leaf-201-202
+        access_port_selector: int-1-22
+        port_blk: blk1
+        from_port: 22
+        to_port: 22
+        policy_group: ESXi-hosts
+        state: present
+
+    - name: Create Port Selector for Interface 1/23
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: leaf-201-202
+        access_port_selector: int-1-23
+        port_blk: blk1
+        from_port: 23
+        to_port: 23
+        policy_group: ESXi-hosts
+        state: present
+
+    - name: Create Port Selector for Interface 1/24
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: leaf-201-202
+        access_port_selector: int-1-24
+        port_blk: blk1
+        from_port: 24
+        to_port: 24
+        policy_group: ESXi-hosts
+        state: present
+
+    - name: Create Port Selector for Interface 1/25
+      cisco.aci.aci_access_port_to_interface_policy_leaf_profile:
+        <<: *allmods
+        leaf_interface_profile: leaf-201-202
+        access_port_selector: int-1-25
+        port_blk: blk1
+        from_port: 25
+        to_port: 25
+        policy_group_name: ESXi-hosts
+        state: present

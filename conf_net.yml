@@ -1,0 +1,42 @@
+---
+vrfs: 
+  - vrf: hacki-vrf
+    state: present
+  - vrf: hacki-vrf2
+    state: present
+  - vrf: hacki-vrf3
+    state: present
+  - vrf: hacki-vrf4
+    state: absent
+  - vrf: hacki-vrf5
+    state: present
+  - vrf: hacki-vrf6
+    state: present
+
+bds: 
+  - vrf: hacki-vrf
+    bd: hacki-bd
+    arp_flooding: False
+    l2_unknown_unicast: proxy
+    l3_unknown_multicast: flood
+    multi_dest: bd-flood
+    enable_routing: True
+    state: present
+  - vrf: hacki-vrf
+    bd: hacki-bd2
+    arp_flooding: False
+    l2_unknown_unicast: flood
+    l3_unknown_multicast: flood
+    multi_dest: bd-flood
+    enable_routing: True
+    state: present
+
+subnets:
+  - bd: hacki-bd
+    gateway_ip: 10.9.8.7
+    subnet_mask: 24
+    state: present
+  - bd: hacki-bd2
+    gateway_ip: 10.8.7.6
+    subnet_mask: 24
+    state: present

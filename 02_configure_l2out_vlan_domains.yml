@@ -1,0 +1,61 @@
+---
+- name: Configure L2Out external bridged domains per VLAN
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+  tasks:
+    - name: Load VLAN definitions
+      ansible.builtin.include_vars:
+        file: vlans.yml
+        name: vlan_data
+
+    - name: Ensure L2Out AAEP exists
+      cisco.aci.aci_aep:
+        <<: *allmods
+        aep: L2Out
+        state: present
+
+    - name: Ensure VLAN pool exists
+      cisco.aci.aci_encap_pool:
+        <<: *allmods
+        pool: L2-L3-Out-VLANs
+        pool_type: vlan
+        pool_allocation_mode: static
+        state: present
+
+    - name: Create external bridged domain for each VLAN
+      cisco.aci.aci_domain:
+        <<: *allmods
+        domain: "L2Out-VLAN-{{ item.id }}"
+        domain_type: l2dom
+        state: present
+      loop: "{{ vlan_data.vlans }}"
+
+    - name: Bind VLAN pool to each L2 bridged domain
+      cisco.aci.aci_domain_to_encap_pool:
+        <<: *allmods
+        domain: "L2Out-VLAN-{{ item.id }}"
+        domain_type: l2dom
+        pool: L2-L3-Out-VLANs
+        pool_type: vlan
+        pool_allocation_mode: static
+        state: present
+      loop: "{{ vlan_data.vlans }}"
+
+    - name: Bind each L2 bridged domain to AAEP L2Out
+      cisco.aci.aci_aep_to_domain:
+        <<: *allmods
+        aep: L2Out
+        domain: "L2Out-VLAN-{{ item.id }}"
+        domain_type: l2dom
+        state: present
+      loop: "{{ vlan_data.vlans }}"

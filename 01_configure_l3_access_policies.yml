@@ -1,0 +1,65 @@
+---
+- name: Configure L3Out access policies
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+  tasks:
+    - name: Create static VLAN pool for L3Out
+      cisco.aci.aci_encap_pool:
+        <<: *allmods
+        pool: L2-L3-Out-VLANs
+        pool_type: vlan
+        pool_allocation_mode: static
+        state: present
+
+    - name: Add VLAN range 500-599 to L3Out VLAN pool
+      cisco.aci.aci_encap_pool_range:
+        <<: *allmods
+        pool: L2-L3-Out-VLANs
+        pool_type: vlan
+        pool_allocation_mode: static
+        range_name: vlan-500-599
+        range_start: 500
+        range_end: 599
+        allocation_mode: inherit
+        state: present
+
+    - name: Create L3 Domain named L3Out
+      cisco.aci.aci_domain:
+        <<: *allmods
+        domain: L3Out
+        domain_type: l3dom
+        state: present
+
+    - name: Bind static VLAN pool to L3Out domain
+      cisco.aci.aci_domain_to_encap_pool:
+        <<: *allmods
+        domain: L3Out
+        domain_type: l3dom
+        pool: L2-L3-Out-VLANs
+        pool_type: vlan
+        pool_allocation_mode: static
+        state: present
+
+    - name: Create AAEP named L3Out
+      cisco.aci.aci_aep:
+        <<: *allmods
+        aep: L3Out
+        state: present
+
+    - name: Bind L3Out domain to AAEP L3Out
+      cisco.aci.aci_aep_to_domain:
+        <<: *allmods
+        aep: L3Out
+        domain: L3Out
+        domain_type: l3dom
+        state: present

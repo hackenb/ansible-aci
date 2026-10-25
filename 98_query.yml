@@ -1,0 +1,20 @@
+---
+- name: Query Tenants
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Task 1 - query tenants
+      cisco.aci.aci_tenant:
+        host: "{{ apic_ip }}"
+        username: "{{ user }}"
+        password: "{{ passw }}"
+        validate_certs: false
+        use_ssl: true
+        state: query
+      register: all_tenants
+
+    - name: Print Tenants
+      ansible.builtin.debug:
+        var: all_tenants

@@ -1,0 +1,122 @@
+---
+- name: Create L3Out OSPF objects from routing.yaml
+  hosts: apic
+  connection: local
+  gather_facts: false
+
+  vars:
+    all_mods: &allmods
+      host: "{{ apic_ip }}"
+      username: "{{ user }}"
+      password: "{{ passw }}"
+      use_ssl: true
+      validate_certs: false
+
+    tenant_name: hacki-tn-a
+    domain_name: L3Out
+    vrf_name: hacki-vrf
+    pod_id: 1
+
+  tasks:
+    - name: Load routing definitions
+      ansible.builtin.include_vars:
+        file: routing.yaml
+        name: routing_data
+
+    - name: Remove legacy sample L3Out to avoid duplicate node/area conflicts
+      cisco.aci.aci_l3out:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF"
+        state: absent
+
+    - name: Remove stale per-VLAN L3Outs to avoid duplicate node/area conflicts
+      cisco.aci.aci_l3out:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        state: absent
+      loop: "{{ routing_data.L3 }}"
+
+    - name: Create L3Out for each routing entry
+      cisco.aci.aci_l3out:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        domain: "{{ domain_name }}"
+        vrf: "{{ vrf_name }}"
+        description: "L3Out for OSPF route id {{ item.id }}"
+        l3protocol:
+          - ospf
+        ospf:
+          area_cost: 1
+          area_ctrl:
+            - redistribute
+            - summary
+          area_id: "{{ 'backbone' if (item['ospf-area'] | int) == 0 else (item['ospf-area'] | string) }}"
+          area_type: "{{ item.Area }}"
+        state: present
+      loop: "{{ routing_data.L3 }}"
+
+    - name: Create L3Out node profile for each routing entry
+      cisco.aci.aci_l3out_logical_node_profile:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        node_profile: "L3-OSPF-{{ item.id }}_nodeProfile"
+        state: present
+      loop: "{{ routing_data.L3 }}"
+
+    - name: Create L3Out interface profile for each routing entry
+      cisco.aci.aci_l3out_logical_interface_profile:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        node_profile: "L3-OSPF-{{ item.id }}_nodeProfile"
+        interface_profile: "L3-OSPF-{{ item.id }}_interfaceProfile"
+        state: present
+      loop: "{{ routing_data.L3 }}"
+
+    - name: Configure each L3Out node binding
+      cisco.aci.aci_l3out_logical_node:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        node_profile: "L3-OSPF-{{ item.id }}_nodeProfile"
+        pod_id: "{{ pod_id }}"
+        node_id: "{{ item.node | default('101') }}"
+        router_id: "10.20.30.{{ 40 + route_idx | int }}"
+        loopback_address: "10.20.30.{{ 40 + route_idx | int }}"
+        state: present
+      loop: "{{ routing_data.L3 }}"
+      loop_control:
+        index_var: route_idx
+      when: item.id == (routing_data.L3 | selectattr('node', 'equalto', item.node | default('101')) | map(attribute='id') | sort | first)
+
+    - name: Create L3Out interface path for each routing entry
+      cisco.aci.aci_l3out_interface:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        node_profile: "L3-OSPF-{{ item.id }}_nodeProfile"
+        interface_profile: "L3-OSPF-{{ item.id }}_interfaceProfile"
+        interface_type: ext-svi
+        mode: regular
+        pod_id: "{{ pod_id }}"
+        node_id: "{{ item.node | default('101') }}"
+        path_ep: "eth{{ item.interface }}"
+        address: "{{ item.ip }}"
+        encap: "vlan-{{ item.id }}"
+        description: "L3Out interface for VLAN {{ item.id }}"
+        state: present
+      loop: "{{ routing_data.L3 }}"
+
+    - name: Create external EPG for each L3Out
+      cisco.aci.aci_l3out_extepg:
+        <<: *allmods
+        tenant: "{{ tenant_name }}"
+        l3out: "L3-OSPF-{{ item.id }}"
+        extepg: "L3-OSPF-{{ item.id }}-extEpg"
+        description: "External EPG for L3Out {{ item.id }}"
+        state: present
+      loop: "{{ routing_data.L3 }}"
